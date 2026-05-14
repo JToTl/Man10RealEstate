@@ -7,12 +7,16 @@ import org.bukkit.Material
 import org.bukkit.entity.Player
 import red.man10.realestate.Command
 import red.man10.realestate.Plugin
+import red.man10.realestate.estateTicket.EstateTicketCalculator
+import red.man10.realestate.estateTicket.EstateTicketItem
 import red.man10.realestate.region.user.Permission
 import red.man10.realestate.region.user.User
 import red.man10.realestate.util.Logger
 import red.man10.realestate.util.MySQLManager
 import red.man10.realestate.util.Utility
 import java.lang.Exception
+import java.text.SimpleDateFormat
+import java.time.LocalDate
 import java.util.*
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicBoolean
@@ -242,6 +246,65 @@ class Region {
     }
 
     @Synchronized
+    fun buyWithEstateTicket(p: Player){
+
+        val city = City.where(teleport)
+        if (city == null){
+            Utility.sendMessage(p,"§c§l都市の外に土地があります。運営に報告してください")
+            return
+        }
+
+        if (status != Status.ON_SALE){
+            Utility.sendMessage(p, "§c§lこの土地は販売されていません！")
+            return
+        }
+
+        if (ownerUUID!=null){
+            Utility.sendMessage(p, "§c§lオーナーが存在する土地では土地チケットは使えません！")
+            return
+        }
+
+        if(!canOwn(p))return
+
+        val estateTickets= EstateTicketCalculator.getAvailableEstateTickets(p,city)
+        p.inventory.removeItem(*estateTickets.map { it.item }.toTypedArray())
+
+
+        Plugin.async.execute {
+
+            val validTickets= EstateTicketCalculator.getValidTickets(estateTickets)
+            val discount=EstateTicketCalculator.sumEstateTicketValue(validTickets)
+
+            if (!Plugin.vault.withdraw(p.uniqueId, price-discount)) {
+                Utility.sendMessage(p, "§c§l電子マネーが足りません！")
+                Bukkit.getScheduler().runTask(Plugin.plugin, Runnable{
+                    p.inventory.addItem(*estateTickets.map{it.item}.toTypedArray())
+                })
+                return@execute
+            }
+
+            setOwner(p)
+            status = Status.PROTECTED
+            asyncSave()
+
+            Logger.logger(p, "土地を購入", id)
+
+            Utility.sendMessage(p, "§a§l土地の購入成功！")
+
+
+            val returnTickets=estateTickets.toMutableList()
+                returnTickets.removeAll(validTickets.toList())
+
+            Bukkit.getScheduler().runTask(Plugin.plugin, Runnable{
+                p.inventory.addItem(*returnTickets.map{it.item}.toTypedArray())
+            })
+
+        }
+
+        return
+    }
+
+    @Synchronized
     fun buy(p: Player){
 
         val city = City.where(teleport)
@@ -462,9 +525,20 @@ class Region {
         Utility.sendMessage(p, "§aオーナー:${ownerName}")
         Utility.sendMessage(p, "§a値段:${Utility.format(price)}")
         Utility.sendMessage(p, "§a税額:${Utility.format(City.getTax(id))}")
+
         if (taxStatus == Region.TaxStatus.WARN){
             Utility.sendMessage(p, "§c§l税金が未払いです")
         }
+
+        if(isTaxFree()){
+            Utility.sendMessage(p, "§e${data.taxFreeDate}まで税金免除")
+        }
+
+        if(!afterNoOwnerChangeDate()){
+            Utility.sendMessage(p, "§c${data.taxFreeDate}までオーナー変更不可")
+        }
+
+
         Utility.sendMessage(p, "§a==========================================")
 
         Utility.sendClickMessage(
@@ -540,11 +614,20 @@ class Region {
         return ownerUUID==player.uniqueId||User.userMap.keys.contains(Pair(player.uniqueId,id))
     }
 
+    fun afterNoOwnerChangeDate(): Boolean{
+        return LocalDate.now()>data.noOwnerChangeDate
+    }
+
+    fun isTaxFree(): Boolean{
+        return taxStatus==TaxStatus.FREE||(data.taxFreeDate?:return false)>LocalDate.now()
+    }
+
+    ///
+    //////////////////
+
     fun teleport(player: Player){
         player.teleport(teleport)
     }
-    ///
-    //////////////////
 
 
     data class RegionData(
@@ -553,7 +636,9 @@ class Region {
         var tax : Double,
         //本当はcityNameもしくはcityIDにするべきだったけど保存名ズラすの面倒でそのままになってる
         var city:String?=null,
-        val limitedBlockAmounts:MutableMap<Material,Int> = mutableMapOf()
+        val limitedBlockAmounts:MutableMap<Material,Int> = mutableMapOf(),
+        var noOwnerChangeDate: LocalDate?=null,
+        var taxFreeDate: LocalDate?=null
     )
 
     enum class TaxStatus(val value : String){

@@ -19,6 +19,7 @@ import red.man10.realestate.Plugin.Companion.disableWorld
 import red.man10.realestate.Plugin.Companion.plugin
 import red.man10.realestate.Plugin.Companion.prefix
 import red.man10.realestate.Plugin.Companion.vault
+import red.man10.realestate.estateTicket.EstateTicketCalculator
 import red.man10.realestate.menu.MainMenu
 import red.man10.realestate.region.*
 import red.man10.realestate.region.user.User
@@ -27,6 +28,9 @@ import red.man10.realestate.util.Utility
 import red.man10.realestate.util.Utility.format
 import red.man10.realestate.util.Utility.sendClickMessage
 import red.man10.realestate.util.Utility.sendMessage
+import java.time.LocalDate
+import java.time.format.DateTimeFormatter
+import java.time.format.DateTimeParseException
 import java.util.*
 import java.util.Locale
 import java.util.Locale.getDefault
@@ -136,6 +140,76 @@ object Command:CommandExecutor {
                         .clickEvent(ClickEvent.runCommand("/mre buy")))
                         .hoverEvent(HoverEvent.showText(text("§6§l電子マネー${format(rg.price)}円")
                     )))
+
+                    return true
+                }
+
+                "buyWithTicket" ->{
+
+                    if (!hasPermission(sender,USER))return false
+
+                    val id = buyConfirmKey[sender.uniqueId]?:return false
+                    buyConfirmKey.remove(sender.uniqueId) //購入確認キー消去
+
+                    async.execute {
+                        val rg = Region.regionMap[id]
+                        if (rg == null){
+                            sendMessage(sender,"§c§l存在しない土地です")
+                            return@execute
+                        }
+                        rg.buyWithEstateTicket(sender)
+                    }
+                    return true
+                }
+
+                "buyWithTicketConfirm" ->{
+
+                    if (!hasPermission(sender,USER))return false
+
+                    if (args.size != 2)return false
+
+                    val id = args[1].toIntOrNull()?:return false
+
+                    val rg = Region.regionMap[id]?:return false
+
+                    if (rg.status != Region.Status.ON_SALE){
+                        sendMessage(sender,"§c§lこの土地は販売されていません！")
+                        return false
+                    }
+
+                    // 購入確認キーを生成
+                    buyConfirmKey[sender.uniqueId] = id
+
+                    Plugin.async.execute {
+
+                        val tickets=EstateTicketCalculator.getAvailableEstateTickets(sender,rg)
+                        val discount= EstateTicketCalculator.sumEstateTicketValue(EstateTicketCalculator.getValidTickets(tickets))
+                        val discountedPrice=rg.price-discount
+
+                        sendMessage(sender, "§e§l値段：${format(rg.price)}")
+                        sendMessage(sender, "§e§lID：${id}")
+                        sendMessage(sender, "§a§l現在のオーナー：${rg.ownerName}")
+                        sendMessage(sender, "§e§l割引：${format(discount)}")
+                        sendMessage(sender, "§e§l割引後の値段：${format(discountedPrice)}")
+                        if(discountedPrice<0){
+                            sendMessage(sender, "§c§l警告！！割引額が値段を上まっています！)")
+                            sendMessage(sender, "§c§l超過した割引額は返還されません！割引額が値段未満になるようにインベントリを整理してください！")
+                        }
+
+                        sendMessage(sender, "§e§l本当に購入しますか？(購入しない場合は無視してください)")
+
+                        sender.sendMessage(
+                            text(prefix).append(
+                                text("§a§l[購入する]")
+                                    .clickEvent(ClickEvent.runCommand("/mre buyWithTicket"))
+                            )
+                                .hoverEvent(
+                                    HoverEvent.showText(
+                                        text("§6§l電子マネー${format(rg.price)}円")
+                                    )
+                                )
+                        )
+                    }
 
                     return true
                 }
@@ -289,6 +363,11 @@ object Command:CommandExecutor {
                     if (sender.uniqueId != rg.ownerUUID && !sender.hasPermission(OP))return false
 
                     val p = Bukkit.getPlayer(args[2])
+
+                    if(rg.afterNoOwnerChangeDate()){
+                        sendMessage(sender,"§c§lこの土地のオーナーの譲渡はできません")
+                        return true
+                    }
 
                     if (rg.taxStatus == Region.TaxStatus.WARN){
                         sendMessage(sender,"§c§l税金滞納中はオーナーの譲渡はできません")
@@ -1469,14 +1548,6 @@ object Command:CommandExecutor {
 
                 }
 
-                "payTaxFromWarnRegion"->{
-                    Plugin.async.execute {
-                        sendMessage(sender, "徴収中...")
-                        City.payTaxFromWarnRegion()
-                        sendMessage(sender, "徴収中が完了しました")
-                    }
-                }
-
                 "setLimitBlock"->{//mreop setLimitBlock <city> <material> <int>
 
                     if(args.size<4){
@@ -1538,6 +1609,38 @@ object Command:CommandExecutor {
 
                     Region.regionMap.filter { it.value.data.city == args[1] }.forEach { (_, region) ->
                         region.recountLimitedBlock()
+                    }
+
+                }
+
+                "setRentAllowance"->{//mreop setRentAllowance <rg>
+
+                    if(args.size<3){
+                        sendMessage(sender, "/mreop setRentAllowance <rg> XXXX/YY/DD")
+                        return false
+                    }
+
+                    val id = args[1].toIntOrNull()?:run{
+                        sendMessage(sender, "idは0以上のintにしてください")
+                        return false
+                    }
+
+                    val rg=Region.regionMap[id]?:run{
+                        sendMessage(sender, "土地が見つかりません")
+                        return false
+                    }
+
+
+                    val formatter = DateTimeFormatter.ofPattern("yyyy/MM/dd")
+
+                    try {
+
+                        val date = LocalDate.parse(args[2], formatter)
+                        rg.data.noOwnerChangeDate=date
+                        rg.data.taxFreeDate=date
+
+                    } catch (e: DateTimeParseException) {
+                        sendMessage(sender,"日付として読み取れません")
                     }
 
                 }

@@ -169,7 +169,10 @@ class City constructor(val cityId:String){
         //税額を取得 ペナルティなども考慮済みの額
         fun getTax(rgID:Int):Double{
             val rg = Region.regionMap[rgID]?:return 0.0
-            if (rg.taxStatus == Region.TaxStatus.FREE)return 0.0
+//            if (rg.taxStatus == Region.TaxStatus.FREE)return 0.0
+
+            if (rg.isTaxFree())return 0.0
+
             val city = where(rg.teleport)?:return 0.0
 
             if (rg.data.tax != 0.0) return rg.data.tax
