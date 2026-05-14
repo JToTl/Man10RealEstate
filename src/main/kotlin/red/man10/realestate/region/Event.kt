@@ -5,6 +5,7 @@ import org.bukkit.Bukkit
 import org.bukkit.Location
 import org.bukkit.Material
 import org.bukkit.NamespacedKey
+import org.bukkit.World
 import org.bukkit.block.Block
 import org.bukkit.block.Sign
 import org.bukkit.entity.EntityType
@@ -255,7 +256,9 @@ object Event :Listener{
 
         val block = e.block
 
-        if (!(getCurrentRegion(block.location)?.canEditBlock(p)?:p.isOp)){
+        val region=getCurrentRegion(block.location)
+
+        if (!(region?.canEditBlock(p)?:p.isOp)){
             sendMessage(p,"§cここにブロックを置くことはできません！")
             e.isCancelled = true
             return
@@ -266,6 +269,28 @@ object Event :Listener{
         if (containerList.contains(block.type) && countContainer(block)> maxContainers){
             sendMessage(p,"§7このチャンクには、これ以上このブロックは置けません！")
             e.isCancelled = true
+        }
+
+        //ブロック設置制限のカウント
+        region?.data?.city?.let { cityId->
+            if(City.cityMap[cityId]?.data?.placementBlockLimit?.containsKey(block.type)?:false){
+
+                if(!region.data.limitedBlockAmounts.containsKey(block.type)){
+                    region.data.limitedBlockAmounts[block.type]=0
+                }
+
+                if(region.data.limitedBlockAmounts[block.type]!!<0){
+                    region.data.limitedBlockAmounts[block.type]=0
+                }
+
+                if(City.cityMap[cityId]!!.data.placementBlockLimit[block.type]!!<=region.data.limitedBlockAmounts[block.type]!!){
+
+                    sendMessage(p,"§7このチャンクには、これ以上このブロックは置けません！")
+                    e.isCancelled=true
+
+                }
+
+            }
         }
 
     }

@@ -28,6 +28,8 @@ import red.man10.realestate.util.Utility.format
 import red.man10.realestate.util.Utility.sendClickMessage
 import red.man10.realestate.util.Utility.sendMessage
 import java.util.*
+import java.util.Locale
+import java.util.Locale.getDefault
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicBoolean
 
@@ -1405,11 +1407,11 @@ object Command:CommandExecutor {
                 "citylimit"-> {
 
                     if(args.size<3){
-                        sendMessage(sender, "mre citylimit <city名> <数字>")
+                        sendMessage(sender, "mreop citylimit <city名> <数字>")
                         return false
                     }
                     val limit=args[2].toIntOrNull()?:run{
-                        sendMessage(sender, "mre citylimit <city名> <数字>")
+                        sendMessage(sender, "mreop citylimit <city名> <数字>")
                         return false
                     }
 
@@ -1475,9 +1477,70 @@ object Command:CommandExecutor {
                     }
                 }
 
+                "setLimitBlock"->{//mreop setLimitBlock <city> <material> <int>
 
+                    if(args.size<4){
+                        sendMessage(sender, "/mreop setLimitBlock <city> <material> <int>")
+                        return false
+                    }
+                    val limit=args[3].toIntOrNull()?:run{
+                        sendMessage(sender, "/mreop setLimitBlock <city> <material> <int>")
+                        return false
+                    }
 
+                    val material=Material.valueOf(args[2].uppercase(getDefault()))
 
+                    val city=City.cityMap[args[1]]?:run{
+                        sendMessage(sender,"都市名が誤っています")
+                        return true
+                    }
+
+                    city.data.placementBlockLimit[material] = limit
+
+                    sendMessage(sender,"${material}を${limit}に設定しました")
+
+                }
+
+                "showLimitBlock"-> {//mreop showLimitBlock <city>
+
+                    if (args.size < 2) {
+                        sendMessage(sender, "/mreop showLimitBlock <city>")
+                        return false
+                    }
+
+                    val city = City.cityMap[args[1]] ?: run {
+                        sendMessage(sender, "都市名が誤っています")
+                        return true
+                    }
+
+                    if (isRunning.get()) {
+                        sendMessage(sender, "§c§l現在別の処理が走っています")
+                        return true
+                    }
+                    isRunning.set(true)
+                    sendMessage(sender, "§a§l設定変更中...")
+                    async.execute {
+                        city.data.placementBlockLimit.entries.forEach { entry ->
+                            sendMessage(sender, "${entry.key}:${entry.value}")
+                        }
+                        isRunning.set(false)
+                    }
+
+                }
+
+                //とりあえず都市ごと
+                "recountLimitBlock"->{//mreop recountLimitBlock <city>
+
+                    if(args.size<2){
+                        sendMessage(sender, "/mreop recountLimitBlock <city>")
+                        return false
+                    }
+
+                    Region.regionMap.filter { it.value.data.city == args[1] }.forEach { (_, region) ->
+                        region.recountLimitedBlock()
+                    }
+
+                }
 
                 else ->{
                     sendMessage(sender,"§c§l不明なコマンドです！")

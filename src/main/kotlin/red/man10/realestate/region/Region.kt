@@ -3,6 +3,7 @@ package red.man10.realestate.region
 import com.google.gson.Gson
 import org.bukkit.Bukkit
 import org.bukkit.Location
+import org.bukkit.Material
 import org.bukkit.entity.Player
 import red.man10.realestate.Command
 import red.man10.realestate.Plugin
@@ -431,6 +432,25 @@ class Region {
         data.city=City.where(teleport)?.cityId
     }
 
+    fun recountLimitedBlock(){
+        data.limitedBlockAmounts.clear()
+        val cityBlockLimit=City.cityMap[data.city]?.data?.placementBlockLimit?.keys?:return
+        cityBlockLimit.forEach { mtr->
+            data.limitedBlockAmounts[mtr]=0
+        }
+        val world=Bukkit.getWorld(City.cityMap[data.city]!!.data.world)?:return
+        for(x in startPosition.first..endPosition.first){
+            for(y in startPosition.second..endPosition.second){
+                for(z in startPosition.third..endPosition.third){
+                    val type=world.getBlockAt(x,y,z).type
+                    if(cityBlockLimit.contains(type)){
+                        data.limitedBlockAmounts[type]=data.limitedBlockAmounts[type]!!+1
+                    }
+                }
+            }
+        }
+    }
+
     fun isInRegion(location: Location):Boolean{//自前で作った方が良さそう
         return Utility.isWithinRange(location,startPosition,endPosition,location.world.name,Plugin.serverName)
     }
@@ -532,7 +552,8 @@ class Region {
         var defaultPrice : Double,
         var tax : Double,
         //本当はcityNameもしくはcityIDにするべきだったけど保存名ズラすの面倒でそのままになってる
-        var city:String?=null
+        var city:String?=null,
+        val limitedBlockAmounts:MutableMap<Material,Int> = mutableMapOf()
     )
 
     enum class TaxStatus(val value : String){
