@@ -3,6 +3,7 @@ package red.man10.realestate.region
 import com.google.gson.Gson
 import org.bukkit.Bukkit
 import org.bukkit.Location
+import org.bukkit.Material
 import org.bukkit.Server
 import red.man10.realestate.Plugin
 import red.man10.realestate.util.Logger
@@ -120,6 +121,10 @@ class City constructor(val cityId:String){
             for (rg in rgList){
                 val amount = getTax(rg.id)
 
+                if(amount<=0.0){
+                    continue
+                }
+
                 if (!Plugin.bank.withdraw(rg.ownerUUID!!,amount,
                         "Man10RealEstate Tax","税金の支払い")){
                     Logger.logger(rg.ownerUUID!!,"滞納税金の支払い失敗",rg.id)
@@ -144,6 +149,10 @@ class City constructor(val cityId:String){
 
             for (rg in rgList){
                 val amount = getTax(rg.id)
+                
+                if(amount<=0.0){
+                    continue
+                }
 
                 //ここで支払い失敗したら土地を手放す
                 if (!Plugin.bank.withdraw(rg.ownerUUID!!,amount,
