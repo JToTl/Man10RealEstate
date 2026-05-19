@@ -616,13 +616,14 @@ object Command:CommandExecutor {
                     §e§l/mreop maxuser <city> <int> : 指定都市の上限人数を設定する
                     §e§l/mreop setprice <id/city名> <price> : 指定土地/都市内の土地全ての値段を変更する
                     §e§l/mreop starttax : 手動で税金を徴収する
+                    §e§l/mreop "starttaxwarn" : 手動で滞納税金を徴収する"
                     §e§l/mreop search : 指定ユーザーの持っている土地を確認する"
                     §e§l/mreop editcity <city> : 指定都市の編集コマンド一覧を表示する"
                     §e§l/mreop editrg <city> : 指定リージョンの編集コマンド一覧を表示する"
                     §e§l/mreop denytp <regionID> : 指定リージョンのmre tpの規制を編集"
                     §e§l/mreop reloadCityData <regionID/all> : 指定リージョンの所属している土地情報をリロードする"
                     §e§l/mreop citylimit <city名> <数字> : 指定都市の所持数上限を設定する"
-                    §e§l/mreop payTaxFromWarnRegion : 手動で滞納税金を徴収する"
+                    §e§l/mreop taxPenalty <数字> : 税金滞納時の徴収倍率を設定する"
                 """.trimIndent())
 
                 return true
@@ -1428,6 +1429,19 @@ object Command:CommandExecutor {
                         sendMessage(sender, "§a§l設定完了！")
                     }
 
+
+                }
+
+                "taxPenalty"->{
+
+                    if(args.size<2)return false
+
+                    val penalty=args[1].toDoubleOrNull()?:return false
+
+                    if(penalty<0.0)return false
+                    Plugin.penalty=penalty
+                    Plugin.plugin.config.set("penalty",penalty)
+                    sendMessage(sender,"滞納税金の倍率を${penalty}に変更しました")
 
                 }
 
