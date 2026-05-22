@@ -266,7 +266,7 @@ class Region {
 
         if(!canOwn(p))return
 
-        val estateTickets= EstateTicketCalculator.getAvailableEstateTickets(p,city)
+        val estateTickets= EstateTicketCalculator.getAvailableEstateTickets(p,this)
         p.inventory.removeItem(*estateTickets.map { it.item }.toTypedArray())
 
 
@@ -292,8 +292,7 @@ class Region {
             Utility.sendMessage(p, "§a§l土地の購入成功！")
 
 
-            val returnTickets=estateTickets.toMutableList()
-                returnTickets.removeAll(validTickets.toList())
+            val returnTickets=estateTickets.filter { !validTickets.map { it.id }.contains(it.getId()) }
 
             Bukkit.getScheduler().runTask(Plugin.plugin, Runnable{
                 p.inventory.addItem(*returnTickets.map{it.item}.toTypedArray())

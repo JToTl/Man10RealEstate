@@ -5,7 +5,9 @@
 
 package red.man10.realestate
 
+import org.bukkit.Material
 import org.bukkit.event.Listener
+import org.bukkit.inventory.ItemStack
 import org.bukkit.plugin.java.JavaPlugin
 import red.man10.man10bank.BankAPI
 import red.man10.realestate.region.*
@@ -15,6 +17,8 @@ import red.man10.realestate.util.MenuFramework
 import red.man10.realestate.util.MySQLManager
 import java.time.DayOfWeek
 import java.time.LocalDateTime
+import java.util.Locale
+import java.util.Locale.getDefault
 import java.util.concurrent.Executors
 
 
@@ -46,6 +50,9 @@ class Plugin : JavaPlugin(), Listener {
 
         var supportedProxy = false
         var otherMREServers = listOf<String>()
+
+        var estateTicketItem= ItemStack(Material.PAPER)
+        private set
     }
 
     override fun onEnable() { // Plugin startup logic
@@ -100,6 +107,21 @@ class Plugin : JavaPlugin(), Listener {
         ownableCityNum=config.getInt("ownableCityNum",-1)
         useIFP=config.getBoolean("useIFP",true)
         otherMREServers=config.getStringList("otherMREServers")
+
+        try {
+            val material=Material.valueOf(
+                config.getString("estateTicketItem.material", "PAPER")!!.uppercase(getDefault())
+            )
+            val cmd=config.getInt("estateTicketItem.customModelData",0)
+            val item=ItemStack(material,1)
+            val meta = item.itemMeta
+            meta.setCustomModelData(cmd)
+            item.itemMeta=meta
+            estateTicketItem=item
+        }catch (e:Exception){
+            logger.warning("土地チケットのMaterialが不正")
+        }
+
     }
 
     private fun supportedProxy(): Boolean{

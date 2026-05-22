@@ -198,6 +198,46 @@ class MySQLManager(private val plugin: JavaPlugin, private val conName: String) 
 
     }
 
+    fun insert(query: String, returnColumn: String): Any? {
+        this.MySQL = MySQLFunc(this.HOST!!, this.DB!!, this.USER!!, this.PASS!!, this.PORT!!)
+        this.con = this.MySQL!!.open()
+
+        if (this.con == null) {
+            Bukkit.getLogger().info("failed to open MYSQL")
+            return null
+        }
+
+        if (debugMode!!) {
+            plugin.logger.info("[DEBUG] insert:$query")
+        }
+
+        try {
+            this.st = this.con!!.createStatement()
+
+            val affectedRows = this.st!!.executeUpdate(query, arrayOf(returnColumn))
+
+            if (affectedRows == 0) {
+                this.plugin.logger.info("[" + this.conName + "] Insert failed: no rows affected")
+                return null
+            }
+
+            this.st!!.generatedKeys.use { keys ->
+                return if (keys.next()) {
+                    keys.getObject(1)
+                } else {
+                    null
+                }
+            }
+
+        } catch (e: SQLException) {
+            this.plugin.logger.info("[" + this.conName + "] Error executing insert: " + e.errorCode + ":" + e.message)
+            this.plugin.logger.info(query)
+            return null
+        } finally {
+            this.close()
+        }
+    }
+
     companion object{
 
         //キューにクエリを入れる

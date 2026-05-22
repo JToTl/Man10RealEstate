@@ -9,6 +9,9 @@ import red.man10.realestate.util.MySQLManager
 
 object EstateTicketCalculator {
 
+
+    data class EstateTicket(val id:Int,val value: Double,val cityId:String)
+
     fun getAvailableEstateTickets(player: Player,region: Region): Array<EstateTicketItem>{
         val array=mutableListOf<EstateTicketItem>()
         player.inventory.contents.slice(0..8).filterNotNull().filter {
@@ -21,39 +24,39 @@ object EstateTicketCalculator {
         return array.toTypedArray()
     }
 
-    fun sumEstateTicketValue(tickets:Array<EstateTicketItem>): Double{
+    fun sumEstateTicketValue(tickets:Array<EstateTicket>): Double{
 
         var sum=0.0
 
-        tickets.forEach { item->
-            sum+= item.getDiscountValue()
+        tickets.forEach { ticket->
+            sum+= ticket.value
         }
 
         return sum
 
     }
 
-    fun getValidTickets(tickets:Array<EstateTicketItem>):Array<EstateTicketItem>{
+    fun getValidTickets(tickets:Array<EstateTicketItem>):Array<EstateTicket>{
         val mysql= MySQLManager(Plugin.plugin,"Man10RealEstate Checking Tickets")
 
         val inClause = tickets.map { it.getId() }.joinToString(prefix = "(", postfix = ")", separator = ",")
 
-        val rs=mysql.query("SELECT id,isValid FROM ESTATE_TICKET WHERE ID IN ${inClause};")?:run{
+        val rs=mysql.query("SELECT id,is_valid,value,city_id FROM ESTATE_TICKET WHERE ID IN ${inClause};")?:run{
             mysql.close()
             return arrayOf()
         }
 
-        val validIdList=mutableListOf<Int>()
+        val validList=mutableListOf<EstateTicket>()
 
         while (rs.next()){
             if(rs.getBoolean("is_valid")){
-                validIdList.add(rs.getInt("id"))
+                validList.add(EstateTicket(rs.getInt("id"), rs.getDouble("value"),rs.getString("city_id")))
             }
         }
         rs.close()
         mysql.close()
 
-        return tickets.filter { validIdList.contains(it.getId()) }.toTypedArray()
+        return validList.toTypedArray()
 
     }
 

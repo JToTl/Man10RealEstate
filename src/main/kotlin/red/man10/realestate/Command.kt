@@ -20,6 +20,7 @@ import red.man10.realestate.Plugin.Companion.plugin
 import red.man10.realestate.Plugin.Companion.prefix
 import red.man10.realestate.Plugin.Companion.vault
 import red.man10.realestate.estateTicket.EstateTicketCalculator
+import red.man10.realestate.estateTicket.EstateTicketItem
 import red.man10.realestate.menu.MainMenu
 import red.man10.realestate.region.*
 import red.man10.realestate.region.user.User
@@ -1643,6 +1644,33 @@ object Command:CommandExecutor {
                         sendMessage(sender,"日付として読み取れません")
                     }
 
+                }
+
+                "createEstateTicket"->{// /mreop createEstaetTicket <cityId> <value>
+                    if(sender !is Player){
+                        sendMessage(sender,"プレイヤー以外は実行不可")
+                        return false
+                    }
+                    if(args.size<3){
+                        sendMessage(sender, "/mreop createEstateTicket <city> <金額>")
+                        return false
+                    }
+
+                    City.cityMap[args[1]]?:run{
+                        sendMessage(sender,"都市が見つかりません")
+                        return false
+                    }
+                    val value=args[2].toDoubleOrNull()?:run{
+                        sendMessage(sender,"金額はdouble")
+                        return false
+                    }
+                    if(value<=0.0){
+                        sendMessage(sender,"0以下は不可")
+                        return false
+                    }
+                    val item=EstateTicketItem.createEstateTicketItem(args[1],value)
+                    sender.inventory.addItem(item)
+                    sendMessage(sender,"土地チケットを作成")
                 }
 
                 else ->{

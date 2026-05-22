@@ -10,3 +10,6 @@ containerAmount: 24
 server: paper
 otherMREServers:
   -
+estateTicketItem:
+  material: PAPER
+  customModelData: 1
